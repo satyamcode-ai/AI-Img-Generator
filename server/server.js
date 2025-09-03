@@ -9,18 +9,17 @@ import messageRouter from './routes/messageRoutes.js'
 import creditRouter from './routes/creditRoutes.js'
 import { stripeWebhooks } from './controller/webhooks.js'
 
+const PORT = process.env.PORT || 8000
 const app = express()
 await connectDB()
+
+app.post('/api/stripe',express.raw({type: 'application/json'}),stripeWebhooks)
 
 // middlewares
 
 app.use(cors())
 app.use(express.json())
 app.use(cookieParser());
-
-const PORT = process.env.PORT || 8000
-
-app.post('/api/stripe',express.raw({type: 'application/json'}),stripeWebhooks)
 
 app.use('/api/auth',authRouter)
 app.use('/api/chat',chatRouter)

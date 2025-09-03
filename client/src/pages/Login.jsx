@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext.jsx';
+import toast from "react-hot-toast";
 
 const LoginPage = () => {
-
-  const {backendUrl} = useAppContext()
+  const { axios, fetchUser, navigate, setToken } = useAppContext();
 
   const [isLogin, setIsLogin] = useState(true);
   const [loginEmail, setLoginEmail] = useState('');
@@ -13,19 +13,66 @@ const LoginPage = () => {
   const [signupPassword, setSignupPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  console.log(backendUrl)
+const handleLoginSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  try {
+    const { data } = await axios.post("/api/auth/login", {
+      email: loginEmail,
+      password: loginPassword,
+    });
 
-  const handleLoginSubmit = (e) => {
+    if (data.success) {
+      // Save token
+      if (data.token) {
+        setToken(data.token);
+        localStorage.setItem("token", data.token);
+      }
+
+      toast.success(data.message || "Login successful");
+
+      // Now fetch user with token set
+      await fetchUser();
+      navigate("/");
+    } else {
+      toast.error(data.message || "Login failed");
+    }
+  } catch (error) {
+    toast.error(error.response?.data?.message || error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  const handleSignupSubmit = async (e) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log('Logging in with:', { email: loginEmail, password: loginPassword });
-  };
+    setLoading(true);
+    try {
+      const { data } = await axios.post("/api/auth/register", {
+        name: signupName,
+        email: signupEmail,
+        password: signupPassword,
+      });
 
-  const handleSignupSubmit = (e) => {
-    e.preventDefault();
-    // Handle sign-up logic here
-    console.log('Signing up with:', { name: signupName, email: signupEmail, password: signupPassword });
+      if (data.success) {
+        // Save token
+        localStorage.setItem("token", data.token);
+        setToken(data.token);
+
+        toast.success(data.message || "Signup successful");
+        await fetchUser();
+        navigate("/");
+      } else {
+        toast.error(data.message || "Signup failed");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,26 +107,24 @@ const LoginPage = () => {
             </h1>
             <p className="text-sm opacity-80 max-w-sm mx-auto lg:mx-0">
               You’re just one step away from unlocking the power of imagination,
-With our AI Image Generator.
+              With our AI Image Generator.
             </p>
           </div>
         </div>
 
         {/* Right Side */}
         <div className="flex-1 p-5 lg:p-10">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Create. Explore. Inspire.</h2>
-          <p className="text-gray-600 text-sm">
-            🖌️ Turn your ideas into stunning visuals.
-          </p>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Create. Explore. Inspire.
+          </h2>
+
+          <br />
+
           <p className="text-gray-600 text-sm">
             🎯 Customize styles and details with ease.
           </p>
 
-          <p className="text-gray-600 mb-6 text-sm">
-
-⚡ Generate unique, high-quality images.
-
-          </p>
+          <br />
 
           {isLogin ? (
             <form onSubmit={handleLoginSubmit} className="space-y-10">
@@ -101,7 +146,7 @@ With our AI Image Generator.
                   PASSWORD
                 </label>
                 <input
-                  type={showLoginPassword ? 'text' : 'password'}
+                  type={showLoginPassword ? "text" : "password"}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors text-sm text-gray-700"
@@ -114,9 +159,35 @@ With our AI Image Generator.
                   className="absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
                 >
                   {showLoginPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.06 13.91l5.47 5.47a2 2 0 0 0 2.83 0L21.91 8.06M10.16 2.06L5.47 6.74a2 2 0 0 0-2.83 0L1.06 8.06M21.94 13.94l-5.47-5.47a2 2 0 0 0-2.83 0L2.06 13.94"></path><path d="M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"></path></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2.06 13.91l5.47 5.47a2 2 0 0 0 2.83 0L21.91 8.06M10.16 2.06L5.47 6.74a2 2 0 0 0-2.83 0L1.06 8.06M21.94 13.94l-5.47-5.47a2 2 0 0 0-2.83 0L2.06 13.94"></path>
+                      <path d="M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"></path>
+                    </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
                   )}
                 </button>
               </div>
@@ -127,7 +198,7 @@ With our AI Image Generator.
                 LOGIN
               </button>
               <p className="text-center text-gray-500 text-xs">
-                Don't have an account?{' '}
+                Don't have an account?{" "}
                 <span
                   onClick={() => setIsLogin(false)}
                   className="text-blue-500 font-semibold cursor-pointer hover:underline"
@@ -169,7 +240,7 @@ With our AI Image Generator.
                   PASSWORD
                 </label>
                 <input
-                  type={showSignupPassword ? 'text' : 'password'}
+                  type={showSignupPassword ? "text" : "password"}
                   value={signupPassword}
                   onChange={(e) => setSignupPassword(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors text-sm text-gray-700 pr-10"
@@ -182,9 +253,35 @@ With our AI Image Generator.
                   className="absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
                 >
                   {showSignupPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.06 13.91l5.47 5.47a2 2 0 0 0 2.83 0L21.91 8.06M10.16 2.06L5.47 6.74a2 2 0 0 0-2.83 0L1.06 8.06M21.94 13.94l-5.47-5.47a2 2 0 0 0-2.83 0L2.06 13.94"></path><path d="M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"></path></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2.06 13.91l5.47 5.47a2 2 0 0 0 2.83 0L21.91 8.06M10.16 2.06L5.47 6.74a2 2 0 0 0-2.83 0L1.06 8.06M21.94 13.94l-5.47-5.47a2 2 0 0 0-2.83 0L2.06 13.94"></path>
+                      <path d="M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"></path>
+                    </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
                   )}
                 </button>
               </div>
@@ -195,7 +292,7 @@ With our AI Image Generator.
                 SIGN UP
               </button>
               <p className="text-center text-gray-500 text-xs">
-                Already have an account?{' '}
+                Already have an account?{" "}
                 <span
                   onClick={() => setIsLogin(true)}
                   className="text-blue-500 font-semibold cursor-pointer hover:underline"

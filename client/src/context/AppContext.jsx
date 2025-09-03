@@ -1,39 +1,107 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { dummyChats, dummyUserData } from "../assets/assets.js";
+import axios from "axios";
+import toast from "react-hot-toast";
+
+axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
+
+// ✅ Automatically attach token on each request
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
   const navigate = useNavigate();
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL
-
   const [user, setUser] = useState(null);
   const [chats, setChats] = useState([]);
-  const [selectedChat, setSelectedChat] = useState(null);
+  const [selectedChat, setSelectedChat] = useState(null); // ✅ will store only chatId
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
-  // fetch user (dummy for now)
+  // ✅ Keep token in sync with localStorage
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem("token", token);
+    } else {
+      localStorage.removeItem("token");
+    }
+  }, [token]);
+
+  // ✅ Fetch user
   const fetchUser = useCallback(async () => {
     try {
-      setUser(dummyUserData);
+      const { data } = await axios.get("/api/auth/data");
+      if (data.success) {
+        setUser(data.user);
+      } else {
+        throw new Error(data.message);
+      }
     } catch (err) {
-      console.error("Error fetching user:", err);
+      setUser(null);
+      setToken(null); // clear token if invalid/expired
+      toast.error(err.response?.data?.message || err.message);
+    } finally {
+      setLoadingUser(false);
     }
   }, []);
 
-  // fetch chats (dummy for now)
+  // ✅ Logout user
+  const logoutUser = useCallback(async () => {
+    try {
+      await axios.post("/api/auth/logout");
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      setToken(null);
+      toast.success("Logged out successfully");
+      setUser(null);
+      navigate("/login");
+    }
+  }, [navigate]);
+
+  // ✅ Create new chat
+  const createNewChat = useCallback(async () => {
+    try {
+      if (!user) return toast("Login to create a new chat");
+
+      navigate("/");
+      const { data } = await axios.post("/api/chat/create");
+      if (data.success) {
+        await fetchUsersChats();
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  }, [user, navigate]);
+
+  // ✅ Fetch user chats
   const fetchUsersChats = useCallback(async () => {
     try {
-      setChats(dummyChats);
-      if (dummyChats.length > 0) setSelectedChat(dummyChats[0]);
-    } catch (err) {
-      console.error("Error fetching chats:", err);
-    }
-  }, []);
+      const { data } = await axios.get("/api/chat/get");
 
-  // toggle theme
+      if (data.success) {
+        setChats(data.chats);
+
+        if (data.chats.length === 0 && !selectedChat) {
+          await createNewChat();
+        } else if (data.chats.length > 0 && !selectedChat) {
+          setSelectedChat(data.chats[0]._id); // ✅ always store ID only
+        }
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  }, [createNewChat, selectedChat]);
+
+  // ✅ Theme toggle
   useEffect(() => {
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
@@ -43,7 +111,7 @@ export const AppContextProvider = ({ children }) => {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // when user changes -> fetch chats
+  // ✅ Fetch chats when user changes
   useEffect(() => {
     if (user) {
       fetchUsersChats();
@@ -53,21 +121,32 @@ export const AppContextProvider = ({ children }) => {
     }
   }, [user, fetchUsersChats]);
 
-  // fetch user on mount
+  // ✅ Fetch user on mount
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    if (token) {
+      fetchUser();
+    } else {
+      setUser(null);
+      setLoadingUser(false);
+    }
+  }, [token, fetchUser]);
 
   const value = {
-    backendUrl,
+    createNewChat,
+    fetchUsersChats,
+    loadingUser,
+    token,
+    setToken,
+    axios,
     navigate,
     user,
     setUser,
     fetchUser,
+    logoutUser,
     chats,
     setChats,
-    selectedChat,
-    setSelectedChat,
+    selectedChat,       // ✅ always an ID
+    setSelectedChat,    // ✅ should only be called with chatId
     theme,
     setTheme,
   };

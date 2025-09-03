@@ -6,90 +6,120 @@ import { WELCOME_TEMPLATE } from '../config/emailTemplate.js';
 import Chat from '../models/chat.js';
 
 // REGISTER
+// REGISTER
 export const registerUser = async (req, res) => {
-    const { name, email, password } = req.body;
+  const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-        return res.status(400).json({ message: "All fields are required" });
+  if (!name || !email || !password) {
+    return res.status(400).json({ success: false, message: "All fields are required" });
+  }
+
+  try {
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ success: false, message: "User already exists" });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
+    await newUser.save();
+
+    const token = jwt.sign(
+      { id: newUser._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // ✅ still set cookie (optional, if you want dual support)
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    // ✅ send token + user so frontend can store immediately
+    res.status(201).json({
+      success: true,
+      message: "Registration successful",
+      token,
+      user: { ...newUser._doc, password: undefined },
+    });
+
+    // Send welcome email (non-blocking, fire & forget)
     try {
-        const userExists = await User.findOne({ email });
-        if (userExists) {
-            return res.status(400).json({ message: "User already exists" });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const newUser = new User({
-            name,
-            email,
-            password: hashedPassword
-        });
-
-        await newUser.save();
-
-        const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
-
-        const mailOptions = {
-            from: process.env.SENDER_EMAIL,
-            to: email,
-            subject: 'Welcome to Our Service',
-            html: WELCOME_TEMPLATE.replace("{{name}}", `Hi ${name},`)
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        return res.status(201).json({ success: true, message: "Registration successful" });
-
-    } catch (error) {
-        console.error("Registration error:", error);
-        res.status(500).json({ success: false, message: error.message });
+      const mailOptions = {
+        from: process.env.SENDER_EMAIL,
+        to: email,
+        subject: "Welcome to Our Service",
+        html: WELCOME_TEMPLATE.replace("{{name}}", `Hi ${name},`),
+      };
+      transporter.sendMail(mailOptions).catch(console.error);
+    } catch (mailErr) {
+      console.error("Email error:", mailErr);
     }
+
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
+
 
 // LOGIN
+// LOGIN
 export const login = async (req, res) => {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ success: false, message: "Email and password are required" });
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: "Email and password are required" });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Please Sign Up..." });
     }
 
-    try {
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: "Please Sign Up..." });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: "Invalid password" });
-        }
-
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
-
-        res.status(200).json({ success: true, message: "Login successful" });
-
-    } catch (error) {
-        console.error("Login error:", error);
-        res.status(500).json({ success: false, message: error.message });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Invalid password" });
     }
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // ✅ still set cookie (optional, for SSR or future use)
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    // ✅ return token so frontend can store in localStorage
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: { ...user._doc, password: undefined }, // include user if needed
+    });
+
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
+
 
 // LOGOUT
 export const logout = (req, res) => {

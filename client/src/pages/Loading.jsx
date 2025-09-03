@@ -4,10 +4,11 @@ import { useAppContext } from '../context/AppContext.jsx'
 
 const Loading = () => {
 
-  const {navigate} = useAppContext()
+  const {navigate,fetchUser} = useAppContext()
 
   useEffect(() => {
       const timeout = setTimeout(()=>{
+        fetchUser()
         navigate('/')
       },8000)
       return ()=> clearTimeout(timeout)
