@@ -102,8 +102,8 @@ const handleLoginSubmit = async (e) => {
             </svg>
           </div>
           <div className="relative z-10 text-center lg:text-left">
-            <h1 className="text-3xl lg:text-4xl font-bold mb-3">
-              Welcome to QuickGPT! 🎨
+            <h1 className="text-2xl lg:text-4xl font-bold mb-3">
+              Welcome to QuickGPT!
             </h1>
             <p className="text-sm opacity-80 max-w-sm mx-auto lg:mx-0">
               You’re just one step away from unlocking the power of imagination,

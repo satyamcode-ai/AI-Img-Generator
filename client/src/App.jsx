@@ -27,7 +27,7 @@ const App = () => {
       {!isMenuOpen && user && (
         <img
           src={assets.menu_icon}
-          className="absolute top-3 left-3 w-8 h-8 cursor-pointer md:hidden dark:invert"
+          className="absolute top-3 left-3 w-8 h-8 cursor-pointer md:hidden invert dark:invert-0"
           onClick={() => setIsMenuOpen(true)}
         />
       )}
